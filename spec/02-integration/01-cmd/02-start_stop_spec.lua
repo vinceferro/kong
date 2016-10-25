@@ -101,16 +101,10 @@ describe("kong start/stop", function()
     -- dnsmasq is not yet started at this point and resty-cli does not include
     -- it in its resolver directive. As such and until supported by resty-cli,
     -- we must force the use of LuaSocket in our CLI to resolve localhost.
-    it("resolves cassandra hostname", function()
+    it("resolves databases hostname", function()
       assert(helpers.kong_exec("start --vv --conf "..helpers.test_conf_path, {
         cassandra_contact_points = "localhost",
-        database = "cassandra"
-      }))
-    end)
-    it("resolves postgres hostname", function()
-      assert(helpers.kong_exec("start --conf "..helpers.test_conf_path, {
         pg_host = "localhost",
-        database = "postgres"
       }))
     end)
   end)

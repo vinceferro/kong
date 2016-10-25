@@ -601,7 +601,10 @@ do
       table.insert(args, 1, res.status)
       table.insert(args, 1, expected)
       args.n = 3
-      return true, {pl_stringx.strip(body)}
+      if body then
+        body = pl_stringx.strip(body)
+      end
+      return true, {body}
     end
   end
   say:set("assertion.res_status.negative", u[[
@@ -858,21 +861,23 @@ local function prepare_prefix(prefix)
   end
 end
 
+local function kill_all()
+  local pid = ngx.worker.pid()
+  local cmd = string.format([[pgrep nginx | grep -v %s | xargs kill]], pid)
+  exec(cmd)
+  exec("pkill dnsmasq; pkill serf")
+end
+
 local function start_kong(env)
   env = env or {}
 
   local ok, err = prepare_prefix(env.prefix)
   if not ok then return nil, err end
 
-  exec("pkill nginx; pkill dnsmasq; pkill serf")
+  kill_all()
   dao:truncate_tables()
 
   return kong_exec("start --conf " .. conf_path, env)
-end
-
-local function kill_all()
-  exec("pkill nginx; pkill dnsmasq; pkill serf")
-  pcall(pl_dir.rmtree, conf.prefix)
 end
 
 ----------

@@ -9,7 +9,7 @@ describe("Core Hooks", function()
       local plugin
 
       before_each(function()
-        helpers.start_kong()
+        assert(helpers.start_kong())
         client = helpers.proxy_client()
         api_client = helpers.admin_client()
 
@@ -85,7 +85,7 @@ describe("Core Hooks", function()
       local plugin, consumer
 
       before_each(function()
-        helpers.start_kong()
+        assert(helpers.start_kong())
         client = helpers.proxy_client()
         api_client = helpers.admin_client()
 
@@ -199,7 +199,7 @@ describe("Core Hooks", function()
     local consumer, api1, api2, basic_auth2, api3, rate_limiting_consumer
 
     before_each(function()
-      helpers.start_kong()
+      assert(helpers.start_kong())
       client = helpers.proxy_client()
       api_client = helpers.admin_client()
 

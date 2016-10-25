@@ -7,7 +7,7 @@ for conf, database in helpers.for_each_db() do
     local factory
     setup(function()
       factory = assert(Factory.new(conf))
-      factory:drop_schema()
+      assert(factory:drop_schema())
     end)
 
     describe("current_migrations()", function()
