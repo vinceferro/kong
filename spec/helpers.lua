@@ -875,7 +875,8 @@ local function start_kong(env)
   if not ok then return nil, err end
 
   kill_all()
-  dao:truncate_tables()
+  ok, err = dao:drop_schema()
+  if not ok then return nil, err end
 
   return kong_exec("start --conf " .. conf_path, env)
 end
