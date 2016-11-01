@@ -46,7 +46,8 @@ return {
 
     POST = function(self, dao_factory)
       crud.post(self.params, dao_factory.plugins, function(data)
-        reports.send("api", data)
+        data.signal = reports.api_signal
+        reports.send(data)
       end)
     end,
 

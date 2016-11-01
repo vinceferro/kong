@@ -1,202 +1,156 @@
-local cjson = require "cjson.safe"
+local meta = require "kong.meta"
+local cjson = require "cjson"
+local cache = require "kong.tools.database_cache"
 local utils = require "kong.tools.utils"
+local pl_utils = require "pl.utils"
+local pl_stringx = require "pl.stringx"
+local resty_lock = require "resty.lock"
 local singletons = require "kong.singletons"
 local constants = require "kong.constants"
-
-
-local kong_dict = ngx.shared.kong
-local udp_sock = ngx.socket.udp
-local timer_at = ngx.timer.at
-local ngx_log = ngx.log
 local concat = table.concat
-local tostring = tostring
-local pairs = pairs
-local type = type
-local ERR = ngx.ERR
-local sub = string.sub
+local udp_sock = ngx.socket.udp
 
+local ping_handler, system_infos
+local enabled = false
+local ping_interval = 3600
+local unique_str = utils.random_string()
 
-local PING_INTERVAL = 3600
-local PING_KEY = "events:reports"
-local BUFFERED_REQUESTS_COUNT_KEYS = "events:requests"
+--------
+-- utils
+--------
 
+local function log_error(...)
+  ngx.log(ngx.WARN, "[reports] ", ...)
+end
 
-local _buffer = {}
-local _enabled = false
-local _unique_str = utils.random_string()
-local _buffer_immutable_idx
+local function get_system_infos()
+  local infos = {
+    version = meta._VERSION
+  }
 
-
-do
-  -- initialize immutable buffer data (the same for each report)
-
-  local meta = require "kong.meta"
-
-  local system_infos = utils.get_system_infos()
-
-  -- <14>: syslog facility code 'log alert'
-  _buffer[#_buffer + 1] = "<14>version=" .. meta._VERSION
-
-  for k, v in pairs(system_infos) do
-    _buffer[#_buffer + 1] = k .. "=" .. v
+  local ok, _, stdout = pl_utils.executeex("getconf _NPROCESSORS_ONLN")
+  if ok then
+    infos.cores = tonumber(stdout:sub(1, -2))
   end
-
-  _buffer_immutable_idx = #_buffer -- max idx for immutable slots
+  ok, _, stdout = pl_utils.executeex("hostname")
+  if ok then
+    infos.hostname = stdout:sub(1, -2)
+  end
+  ok, _, stdout = pl_utils.executeex("uname -a")
+  if ok then
+    infos.uname = stdout:gsub(";", ","):sub(1, -2)
+  end
+  return infos
 end
 
+system_infos = get_system_infos()
 
-local function log(lvl, ...)
-  ngx_log(lvl, "[reports] ", ...)
-end
-
-
+-------------
 -- UDP logger
+-------------
 
-
-local function send_report(signal_type, t, host, port)
-  if not _enabled then
-    return
-  elseif type(signal_type) ~= "string" then
-    return error("signal_type (arg #1) must be a string", 2)
-  end
-
+local function send(t, host, port)
+  if not enabled then return end
   t = t or {}
   host = host or constants.SYSLOG.ADDRESS
   port = port or constants.SYSLOG.PORT
 
-  -- add signal type to data
+  local buf = {}
+  for k, v in pairs(system_infos) do
+    buf[#buf+1] = k.."="..v
+  end
 
-  t.signal = signal_type
-
-  -- insert given entity in mutable part of buffer
-
-  local mutable_idx = _buffer_immutable_idx
-
+  -- entity formatting
   for k, v in pairs(t) do
-    if k ~= "created_at" and sub(k, -2) ~= "id" then
+    if not pl_stringx.endswith(k, "id") and k ~= "created_at" then
       if type(v) == "table" then
-        local json, err = cjson.encode(v)
-        if err then
-          log(ERR, "could not JSON encode given table entity: ", err)
-        end
-
-        v = json
+        v = cjson.encode(v)
       end
 
-      mutable_idx = mutable_idx + 1
-      _buffer[mutable_idx] = k .. "=" .. tostring(v)
+      buf[#buf+1] = k.."="..tostring(v)
     end
   end
+
+  local msg = concat(buf, ";")
 
   local sock = udp_sock()
   local ok, err = sock:setpeername(host, port)
   if not ok then
-    log(ERR, "could not set peer name for UDP socket: ", err)
+    log_error("could not set peer name for UDP socket: ", err)
     return
   end
 
   sock:settimeout(1000)
 
-  -- concat and send buffer
-
-  --print(concat(_buffer, ";", 1, mutable_idx))
-
-  ok, err = sock:send(concat(_buffer, ";", 1, mutable_idx))
+  ok, err = sock:send("<14>"..msg) -- syslog facility code 'log alert'
   if not ok then
-    log(ERR, "could not send data: ", err)
+    log_error("could not send data: ", err)
   end
 
   ok, err = sock:close()
   if not ok then
-    log(ERR, "could not close socket: ", err)
+    log_error("could not close socket: ", err)
   end
 end
 
+---------------
+-- ping handler
+---------------
 
--- ping timer handler
-
-
--- Hold a lock for the whole interval (exptime) to prevent multiple
--- worker processes from sending the test request simultaneously.
--- Other workers do not need to wait until this lock is released,
--- and can ignore the event, knowing another worker is handling it.
--- We substract 1ms to the exp time to prevent a race condition
--- with the next timer event.
-local function get_lock(key, exptime)
-  local ok, err = kong_dict:safe_add(key, true, exptime - 0.001)
-  if not ok and err ~= "exists" then
-    log(ERR, "could not get lock from 'kong' shm: ", err)
-  end
-
-  return ok
-end
-
-
-local function create_timer(...)
-  local ok, err = timer_at(...)
+local function create_ping_timer()
+  local ok, err = ngx.timer.at(ping_interval, ping_handler)
   if not ok then
-    log(ERR, "could not create ping timer: ", err)
+    log_error("failed to create ping timer: ", err)
   end
 end
 
+ping_handler = function(premature)
+  if premature then return end
 
-local function ping_handler(premature)
-  if premature then
-    return
-  end
-
-  -- all workers need to register a recurring timer, in case one of them
-  -- crashes. Hence, this must be called before the `get_lock()` call.
-  create_timer(PING_INTERVAL, ping_handler)
-
-  if not get_lock(PING_KEY, PING_INTERVAL) then
-    return
-  end
-
-  local n_requests, err = kong_dict:get(BUFFERED_REQUESTS_COUNT_KEYS)
-  if err then
-    log(ERR, "could not get buffered requests count from 'kong' shm: ", err)
-  elseif not n_requests then
-    n_requests = 0
-  end
-
-  send_report("ping", {
-    requests = n_requests,
-    unique_id = _unique_str,
-    database = singletons.configuration.database
+  local lock, err = resty_lock:new("reports_locks", {
+    exptime = ping_interval - 0.001
   })
-
-  local ok, err = kong_dict:incr(BUFFERED_REQUESTS_COUNT_KEYS, -n_requests, n_requests)
-  if not ok then
-    log(ERR, "could not reset buffered requests count in 'kong' shm: ", err)
+  if not lock then
+    log_error("could not create lock: ", err)
+    return
   end
-end
 
+  local elapsed, err = lock:lock("ping")
+  if not elapsed then
+    log_error("failed to acquire ping lock: ", err)
+  elseif elapsed == 0 then
+    send {
+      signal = "ping",
+      requests = cache.get(cache.requests_key()) or 0,
+      unique_id = unique_str,
+      database = singletons.configuration.database
+    }
+    cache.rawset(cache.requests_key(), 0)
+  end
+
+  create_ping_timer()
+end
 
 return {
+  -----------------
   -- plugin handler
+  -----------------
   init_worker = function()
-    if not _enabled then
-      return
-    end
-
-    create_timer(PING_INTERVAL, ping_handler)
+    if not enabled then return end
+    cache.rawset(cache.requests_key(), 0)
+    create_ping_timer()
   end,
   log = function()
-    if not _enabled then
-      return
-    end
-
-    local ok, err = kong_dict:incr(BUFFERED_REQUESTS_COUNT_KEYS, 1, 0)
-    if not ok then
-      log(ERR, "could not increment buffered requests count in 'kong' shm: ",
-                err)
-    end
+    if not enabled then return end
+    cache.incr(cache.requests_key(), 1)
   end,
-
+  -----------------
   -- custom methods
+  -----------------
   toggle = function(enable)
-    _enabled = enable
+    enabled = enable
   end,
-  send = send_report,
+  get_system_infos = get_system_infos,
+  send = send,
+  api_signal = "api"
 }
