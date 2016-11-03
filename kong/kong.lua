@@ -30,6 +30,7 @@ local core = require "kong.core.handler"
 local Serf = require "kong.serf"
 local utils = require "kong.tools.utils"
 local Events = require "kong.core.events"
+local constants = require "kong.constants"
 local singletons = require "kong.singletons"
 local DAOFactory = require "kong.dao.factory"
 local plugins_iterator = require "kong.core.plugins_iterator"
@@ -120,7 +121,8 @@ function Kong.init()
   local config = assert(conf_loader(conf_path))
 
   local events = Events() -- retrieve node plugins
-  local dao = DAOFactory(config, events) -- instanciate long-lived DAO
+  local dao = assert(DAOFactory.new(config, events)) -- instanciate long-lived DAO
+  assert(dao:init())
   assert(dao:run_migrations()) -- migrating in case embedded in custom nginx
 
   -- populate singletons
@@ -142,10 +144,35 @@ function Kong.init_worker()
 
   core.init_worker.before()
 
-  singletons.dao:init() -- Executes any initialization by the DB
+  local ok, err = singletons.dao:init_worker()
+  if not ok then
+    ngx.log(ngx.ERR, "could not init DB: ", err)
+  end
 
   for _, plugin in ipairs(singletons.loaded_plugins) do
     plugin.handler:init_worker()
+  end
+
+  local ev = require "resty.worker.events"
+  local handler = function(data, event, source, pid)
+    if source and source == constants.CACHE.CLUSTER then
+      singletons.events:publish(event, data)
+    end
+  end
+
+  ev.register(handler)
+
+  local ok, err = ev.configure {
+    shm = "process_events", -- defined by "lua_shared_dict"
+    timeout = 5,            -- life time of event data in shm
+    interval = 1,           -- poll interval (seconds)
+
+    wait_interval = 0.010,  -- wait before retry fetching event data
+    wait_max = 0.5,         -- max wait time before discarding event
+  }
+  if not ok then
+    ngx.log(ngx.ERR, "failed to start event system: ", err)
+    return
   end
 end
 
