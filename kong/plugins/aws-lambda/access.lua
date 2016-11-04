@@ -6,24 +6,29 @@ local http = require "resty.http"
 local cjson = require "cjson"
 
 local string_find = string.find
-local req_get_headers = ngx.req.get_headers
+local ngx_req_get_headers = ngx.req.get_headers
+local ngx_req_read_body = ngx.req.read_body
+local ngx_req_get_post_args = ngx.req.get_post_args
+local ngx_req_get_uri_args = ngx.req.get_uri_args
+local ngx_req_get_body_data = ngx.req.get_body_data
+
 local CONTENT_TYPE = "content-type"
 
 local _M = {}
 
 local function retrieve_parameters()
-  ngx.req.read_body()
+  ngx_req_read_body()
   local body_parameters
-  local content_type = req_get_headers()[CONTENT_TYPE]
+  local content_type = ngx_req_get_headers()[CONTENT_TYPE]
   if content_type and string_find(content_type:lower(), "multipart/form-data", nil, true) then
-    body_parameters = Multipart(ngx.req.get_body_data(), content_type):get_all()
+    body_parameters = Multipart(ngx_req_get_body_data(), content_type):get_all()
   elseif content_type and string_find(content_type:lower(), "application/json", nil, true) then
-    body_parameters = cjson.decode(ngx.req.get_body_data())
+    body_parameters = cjson.decode(ngx_req_get_body_data())
   else
-    body_parameters = ngx.req.get_post_args()
+    body_parameters = ngx_req_get_post_args()
   end
 
-  return utils.table_merge(ngx.req.get_uri_args(), body_parameters)
+  return utils.table_merge(ngx_req_get_uri_args(), body_parameters)
 end
 
 function _M.execute(conf)
