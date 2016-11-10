@@ -18,6 +18,7 @@ local CACHE_KEYS = {
   AUTOJOIN_RETRIES = "autojoin_retries",
   TIMERS = "timers",
   ALL_APIS_BY_DIC = "ALL_APIS_BY_DIC",
+  ALL_VERSIONS_BY_DIC = "ALL_VERSIONS_BY_DIC",
   LDAP_CREDENTIAL = "ldap_credentials"
 }
 
@@ -122,6 +123,10 @@ end
 
 function _M.all_apis_by_dict_key()
   return CACHE_KEYS.ALL_APIS_BY_DIC
+end
+
+function _M.all_versions_by_dict_key()
+  return CACHE_KEYS.ALL_VERSIONS_BY_DIC
 end
 
 function _M.get_or_set(key, cb)
