@@ -194,7 +194,7 @@ function _M.load_versions_in_memory()
 end
 
 -- Override `api` upstream_url with the version requested via headers
-function _M.override_upstream_url_by_version(headers, api_dict)
+function _M.override_upstream_url_by_version(req_headers, api_dict)
   local version = req_headers["Version"]
   if not version then return nil end
 
