@@ -1,9 +1,9 @@
 package = "kong"
-version = "0.8.3-2"
+version = "0.8.4-0"
 supported_platforms = {"linux", "macosx"}
 source = {
   url = "git://github.com/vinceferro/kong",
-  tag = "0.8.3"
+  tag = "0.8.4"
 }
 description = {
   summary = "Kong is a scalable and customizable API Management Layer built on top of Nginx.",
