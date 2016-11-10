@@ -180,6 +180,38 @@ function _M.strip_request_path(uri, strip_request_path_pattern, upstream_url_has
   return uri
 end
 
+function _M.load_versions_in_memory()
+  local versions, err = singletons.dao.versions:find_all()
+  if err then
+    return nil, err
+  end
+
+  local version_dic = {}
+  for _, version in ipairs(versions) do
+    version_dic[version.api_id..":"..version.version] = version
+  end
+  return { by_api_and_version = version_dic }
+end
+
+-- Override `api` upstream_url with the version requested via headers
+function _M.override_upstream_url_by_version(headers, api_dict)
+  local version = req_headers["Version"]
+  if not version then return nil end
+
+  -- Retrieve all APIs
+  local versions_dics, err = cache.get_or_set(cache.all_versions_by_dict_key(), _M.load_versions_in_memory)
+  if err then
+    return err
+  end
+
+  local version_dic = versions_dics.by_api_and_version[api_dict.id..":"..version]
+
+  if version_dic then
+    api.upstream_url = version_dic.upstream_url
+  end
+
+end
+
 -- Find an API from a request made to nginx. Either from one of the Host or X-Host-Override headers
 -- matching the API's `request_host`, either from the `uri` matching the API's `request_path`.
 --
@@ -208,11 +240,13 @@ local function find_api(uri, headers)
   -- If it was found by Host, return
   if api then
     ngx.req.set_header(constants.HEADERS.FORWARDED_HOST, matched_host)
+    _M.override_upstream_url_by_version(headers, api)
     return nil, api, matched_host, hosts_list
   end
 
   -- Otherwise, we look for it by request_path. We have to loop over all APIs and compare the requested URI.
   api, strip_request_path_pattern = _M.find_api_by_request_path(uri, apis_dics.request_path_arr)
+  _M.override_upstream_url_by_version(headers, api)
 
   return nil, api, nil, hosts_list, strip_request_path_pattern
 end

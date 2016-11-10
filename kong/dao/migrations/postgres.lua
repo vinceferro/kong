@@ -141,5 +141,30 @@ return {
       DROP TABLE ttls;
       DROP FUNCTION upsert_ttl(text, uuid, text, text, timestamp);
     ]]
-  }
+  },
+  {
+    name = "2016-11-10-101800_create_versions",
+    up = [[
+    CREATE TABLE IF NOT EXISTS versions(
+        id uuid,
+        api_id uuid references apis(id) ON DELETE CASCADE,
+        upstream_url text,
+        version integer,
+        created_at timestamp without time zone default (CURRENT_TIMESTAMP(0) at time zone 'utc'),
+        PRIMARY KEY (id)
+      );
+      DO $$
+      BEGIN
+        IF (SELECT to_regclass('versions_api_idx')) IS NULL THEN
+          CREATE INDEX versions_api_idx ON versions(api_id);
+        END IF;
+        IF (SELECT to_regclass('versions_version_idx')) IS NULL THEN
+          CREATE INDEX versions_version_idx ON versions(version);
+        END IF;
+      END$$;
+   ]],
+    down = [[
+      DROP TABLE versions;
+    ]]
+  },
 }

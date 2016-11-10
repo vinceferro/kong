@@ -4,7 +4,7 @@ local Object = require "classic"
 local stringy = require "stringy"
 local ModelFactory = require "kong.dao.model_factory"
 
-local CORE_MODELS = {"apis", "consumers", "plugins", "nodes"}
+local CORE_MODELS = {"apis", "consumers", "plugins", "nodes", "versions"}
 local _db
 
 local Factory = Object:extend()
