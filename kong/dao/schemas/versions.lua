@@ -24,7 +24,7 @@ return {
     id = {type = "id", dao_insert_value = true, required = true},
     api_id = {type = "id", required = true, foreign = "apis:id"},
     created_at = {type = "timestamp", immutable = true, dao_insert_value = true, required = true},
-    version = {type = "integer", required = true},
+    version = {type = "string", required = true},
     upstream_url = {type = "url", required = true, func = validate_upstream_url_protocol},
   },
   marshall_event = function(self, t)
