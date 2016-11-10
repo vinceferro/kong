@@ -1,8 +1,8 @@
 package = "kong"
-version = "0.8.3-0"
+version = "0.8.3-2"
 supported_platforms = {"linux", "macosx"}
 source = {
-  url = "git://github.com/Mashape/kong",
+  url = "git://github.com/vinceferro/kong",
   tag = "0.8.3"
 }
 description = {
@@ -76,6 +76,7 @@ build = {
     ["kong.api.routes.apis"] = "kong/api/routes/apis.lua",
     ["kong.api.routes.consumers"] = "kong/api/routes/consumers.lua",
     ["kong.api.routes.plugins"] = "kong/api/routes/plugins.lua",
+    ["kong.api.routes.versions"] = "kong/api/routes/versions.lua",
     ["kong.api.routes.cache"] = "kong/api/routes/cache.lua",
     ["kong.api.routes.cluster"] = "kong/api/routes/cluster.lua",
 
@@ -110,6 +111,7 @@ build = {
     ["kong.dao.schemas.nodes"] = "kong/dao/schemas/nodes.lua",
     ["kong.dao.schemas.consumers"] = "kong/dao/schemas/consumers.lua",
     ["kong.dao.schemas.plugins"] = "kong/dao/schemas/plugins.lua",
+    ["kong.dao.schemas.versions"] = "kong/dao/schemas/versions.lua",
     ["kong.dao.base_db"] = "kong/dao/base_db.lua",
     ["kong.dao.cassandra_db"] = "kong/dao/cassandra_db.lua",
     ["kong.dao.postgres_db"] = "kong/dao/postgres_db.lua",
