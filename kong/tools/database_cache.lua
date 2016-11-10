@@ -18,7 +18,8 @@ local CACHE_KEYS = {
   SSL = "ssl",
   ALL_APIS_BY_DIC = "ALL_APIS_BY_DIC",
   LDAP_CREDENTIAL = "ldap_credentials",
-  BOT_DETECTION = "bot_detection"
+  BOT_DETECTION = "bot_detection",
+  ALL_VERSIONS_BY_DIC = "ALL_VERSIONS_BY_DIC",
 }
 
 local _M = {}
@@ -118,6 +119,10 @@ end
 
 function _M.all_apis_by_dict_key()
   return CACHE_KEYS.ALL_APIS_BY_DIC
+end
+
+function _M.all_versions_by_dict_key()
+  return CACHE_KEYS.ALL_VERSIONS_BY_DIC
 end
 
 function _M.get_or_set(key, cb)
