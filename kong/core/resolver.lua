@@ -207,7 +207,7 @@ function _M.override_upstream_url_by_version(req_headers, api_dict)
   local version_dic = versions_dics.by_api_and_version[api_dict.id..":"..version]
 
   if version_dic then
-    api.upstream_url = version_dic.upstream_url
+    api_dict.upstream_url = version_dic.upstream_url
   end
 
 end
