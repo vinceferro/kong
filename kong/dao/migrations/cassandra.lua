@@ -143,7 +143,7 @@ return {
         id uuid,
         api_id uuid,
         upstream_url text,
-        version integer,
+        version text,
         created_at timestamp,
         PRIMARY KEY (id)
       );

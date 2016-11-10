@@ -149,7 +149,7 @@ return {
         id uuid,
         api_id uuid references apis(id) ON DELETE CASCADE,
         upstream_url text,
-        version integer,
+        version text,
         created_at timestamp without time zone default (CURRENT_TIMESTAMP(0) at time zone 'utc'),
         PRIMARY KEY (id)
       );
