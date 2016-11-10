@@ -8,6 +8,10 @@ local function invalidate_plugin(entity)
   cache.delete(cache.plugin_key(entity.name, entity.api_id, entity.consumer_id))
 end
 
+local function invalidate_version(entity)
+  cache.delete(cache.version_key(entity.version, entity.api_id))
+end
+
 local function invalidate(message_t)
   if message_t.collection == "consumers" then
     cache.delete(cache.consumer_key(message_t.entity.id))
@@ -19,6 +23,9 @@ local function invalidate(message_t)
   elseif message_t.collection == "plugins" then
     -- Handles both the update and the delete
     invalidate_plugin(message_t.old_entity and message_t.old_entity or message_t.entity)
+  elseif message_t.collection == "versions" then
+    invalidate_version(message_t.old_entity and message_t.old_entity or message_t.entity)
+    cache.delete(cache.all_versions_by_dict_key())
   end
 end
 

@@ -82,5 +82,58 @@ return {
     DELETE = function(self, dao_factory)
       crud.delete(self.plugin, dao_factory.plugins)
     end
+  },
+
+  ["/apis/:name_or_id/versions/"] = {
+    before = function(self, dao_factory, helpers)
+      crud.find_api_by_name_or_id(self, dao_factory, helpers)
+      self.params.api_id = self.api.id
+    end,
+
+    GET = function(self, dao_factory)
+      crud.paginated_set(self, dao_factory.versions)
+    end,
+
+    POST = function(self, dao_factory)
+      crud.post(self.params, dao_factory.versions, function(data)
+        if singletons.configuration.send_anonymous_reports then
+          data.signal = constants.SYSLOG.API
+          syslog.log(syslog.format_entity(data))
+        end
+      end)
+    end,
+
+    PUT = function(self, dao_factory)
+      crud.put(self.params, dao_factory.versions)
+    end
+  },
+
+  ["/apis/:name_or_id/versions/:id"] = {
+    before = function(self, dao_factory, helpers)
+      crud.find_api_by_name_or_id(self, dao_factory, helpers)
+      local rows, err = dao_factory.versions:find_all {
+        id = self.params.id,
+        api_id = self.api.id
+      }
+      if err then
+        return helpers.yield_error(err)
+      elseif #rows == 0 then
+        return helpers.responses.send_HTTP_NOT_FOUND()
+      end
+
+      self.version = rows[1]
+    end,
+
+    GET = function(self, dao_factory, helpers)
+      return helpers.responses.send_HTTP_OK(self.version)
+    end,
+
+    PATCH = function(self, dao_factory)
+      crud.patch(self.params, dao_factory.versions, self.version)
+    end,
+
+    DELETE = function(self, dao_factory)
+      crud.delete(self.version, dao_factory.versions)
+    end
   }
 }

@@ -143,5 +143,24 @@ return {
     down = [[
       ALTER TABLE nodes WITH default_time_to_live = 3600;
     ]]
+  },
+  {
+    name = "2016-11-10-101800_create_versions",
+    up = [[
+      CREATE TABLE IF NOT EXISTS versions(
+        id uuid,
+        api_id uuid,
+        upstream_url text,
+        version integer,
+        created_at timestamp,
+        PRIMARY KEY (id)
+      );
+
+      CREATE INDEX IF NOT EXISTS ON versions(api_id);
+      CREATE INDEX IF NOT EXISTS ON versions(version);
+   ]],
+    down = [[
+      DROP TABLE versions;
+    ]]
   }
 }

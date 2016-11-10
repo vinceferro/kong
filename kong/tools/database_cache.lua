@@ -5,6 +5,7 @@ local ngx_log = ngx.log
 
 local CACHE_KEYS = {
   APIS = "apis",
+  VERSIONS = "versions",
   CONSUMERS = "consumers",
   PLUGINS = "plugins",
   BASICAUTH_CREDENTIAL = "basicauth_credentials",
@@ -61,6 +62,10 @@ end
 
 function _M.api_key(host)
   return CACHE_KEYS.APIS..":"..host
+end
+
+function _M.version_key(version, api_id)
+  return CACHE_KEYS.VERSIONS..":"..api_id..":"..version
 end
 
 function _M.consumer_key(id)
