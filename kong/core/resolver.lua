@@ -170,7 +170,7 @@ end
 
 -- Override `api` upstream_url with the version requested via headers
 function _M.override_upstream_url_by_version(req_headers, api_dict)
-  local version = req_headers["Version"]
+  local version = req_headers["X-API-Version"]
   if not version then return nil end
 
   -- Retrieve all APIs
