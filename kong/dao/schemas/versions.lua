@@ -1,5 +1,4 @@
 local url = require "socket.url"
-local stringy = require "stringy"
 
 local fmt = string.format
 local sub = string.sub
