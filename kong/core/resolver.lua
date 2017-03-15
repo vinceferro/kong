@@ -246,7 +246,9 @@ local function find_api(uri, headers)
 
   -- Otherwise, we look for it by request_path. We have to loop over all APIs and compare the requested URI.
   api, strip_request_path_pattern = _M.find_api_by_request_path(uri, apis_dics.request_path_arr)
-  _M.override_upstream_url_by_version(headers, api)
+  if api then
+    _M.override_upstream_url_by_version(headers, api)
+  end
 
   return nil, api, nil, hosts_list, strip_request_path_pattern
 end
